@@ -225,3 +225,133 @@ def kernel_estimation_exp(
         similarities.append(row)
 
     return similarities, left_features
+
+def _build_swap_circuit(left_circ: QuantumCircuit,
+                        right_circ: QuantumCircuit
+                        ) -> QuantumCircuit:
+    """
+    Build SWAP test circuit from two pre-built encoded circuits.
+ 
+    Structure:
+        anc:  |0⟩ ─ H ─────────────────── H ─ Measure
+        regA: |0⟩ ─ left_circ  ─ CSWAP ───────────────
+        regB: |0⟩ ─ right_circ ─ CSWAP ───────────────
+ 
+    P(anc=0) = (1 + |<L|R>|²) / 2
+    Similarity = 2 × P(0) − 1  =  |<L|R>|²
+ 
+    Total qubits = 2×n + 1
+    """
+    n    = left_circ.num_qubits
+    anc  = QuantumRegister(1,  "anc")
+    regA = QuantumRegister(n,  "regA")
+    regB = QuantumRegister(n,  "regB")
+    creg = ClassicalRegister(1, "c_swap")
+    qc   = QuantumCircuit(anc, regA, regB, creg)
+ 
+    # Encode both states into separate registers
+    qc.compose(left_circ,  qubits=regA, inplace=True)
+    qc.compose(right_circ, qubits=regB, inplace=True)
+ 
+    # SWAP test
+    qc.h(anc[0])
+    for i in range(n):
+        qc.cswap(anc[0], regA[i], regB[i])
+    qc.h(anc[0])
+ 
+    qc.measure(anc[0], creg[0])
+ 
+    return qc
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+# SWAP TEST SIMILARITY
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+def swap_test_similarity(
+    state_left_circs: List[QuantumCircuit],
+    state_right_circs: List[QuantumCircuit],
+    backend,
+    shots: int = 2048,
+    seed: int  = 42,
+    sampler: Optional[Sampler] = None,
+) -> Tuple[List[List[float]], List[dict]]:
+    """
+    SWAP test pairwise similarity between left and right circuits.
+ 
+    Builds one SWAP test circuit per (left, right) pair,
+    runs all N×M circuits in a single batch.
+ 
+    Similarity = 2 × P(ancilla=0) − 1  =  |<L|R>|²
+    Clipped to [0, 1].
+ 
+    Same signature as run_compute_uncompute_test — direct drop-in.
+ 
+    Parameters
+    ----------
+    state_left_circs  : pre-built query circuits (test samples)
+    state_right_circs : pre-built prototype circuits (class prototypes)
+    backend           : AerSimulator or IBM hardware backend
+    shots             : measurement shots
+    seed              : simulator random seed
+    sampler           : Sampler for hardware (None for simulator)
+ 
+    Returns
+    -------
+    similarities : List[List[float]]
+        2D list shape (n_left, n_right) — |<L|R>|² values ∈ [0, 1]
+    all_counts   : List[dict]
+        Raw measurement counts for each circuit
+    """
+    is_simulated = isinstance(backend, AerSimulator)
+    n_qubits     = state_left_circs[0].num_qubits
+ 
+    assert all(c.num_qubits == n_qubits
+               for c in state_left_circs + state_right_circs), \
+        "All circuits must have the same number of qubits."
+ 
+    # ── Build all N×M SWAP circuits ───────────────────────────────
+    circuits = []
+    for left_circ in state_left_circs:
+        for right_circ in state_right_circs:
+            circuits.append(_build_swap_circuit(left_circ, right_circ))
+ 
+    # ── Run all circuits in one batch ─────────────────────────────
+    if is_simulated:
+        tqcs       = transpile(circuits, backend, optimization_level=3)
+        result     = backend.run(tqcs, shots=shots,
+                                 seed_simulator=seed).result()
+        all_counts = [result.get_counts(i) for i in range(len(circuits))]
+ 
+    else:
+        if sampler is None:
+            raise ValueError("A Sampler must be provided for hardware execution.")
+ 
+        tqcs = transpile(circuits, backend, optimization_level=3)
+ 
+        sampler.options.dynamical_decoupling.enable        = True
+        sampler.options.dynamical_decoupling.sequence_type = "XpXm"
+        sampler.options.twirling.enable_gates              = True
+ 
+        results    = sampler.run(tqcs, shots=shots).result()
+        all_counts = [_get_counts(res) for res in results]
+ 
+    # ── Extract similarity from counts ────────────────────────────
+    def _similarity(counts: dict) -> float:
+        p0  = counts.get("0", 0) / shots
+        return max(0.0, 2.0 * p0 - 1.0)
+ 
+    # ── Group into 2D similarity list ─────────────────────────────
+    n_left  = len(state_left_circs)
+    n_right = len(state_right_circs)
+    idx     = 0
+ 
+    similarities = []
+    for _ in range(n_left):
+        row = []
+        for _ in range(n_right):
+            row.append(_similarity(all_counts[idx]))
+            idx += 1
+        similarities.append(row)
+ 
+    return similarities, all_counts
