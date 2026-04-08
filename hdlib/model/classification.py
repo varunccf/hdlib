@@ -47,7 +47,7 @@ from hdlib.arithmetic.quantum import (
     run_compute_uncompute_test,
     get_circuit_metrics,
 )
-from hdlib.arithmetic.kernel_estimations import kernel_estimation, kernel_estimation_exp
+from hdlib.arithmetic.kernel_estimations import kernel_estimation, kernel_estimation_exp,swap_test_similarity
 
 
 class ClassificationModel(object):
@@ -1588,6 +1588,7 @@ class QuantumClassificationModel(object):
                 query_batch = queries[i : i + max_queries_per_job]
 
                 sims, _ = run_compute_uncompute_test(query_batch, chunks, self.backend, shots=self.shots, seed=self.seed, sampler=sampler)
+                #sims, _ = swap_test_similarity(query_batch, chunks, self.backend, shots=self.shots, seed=self.seed, sampler=sampler)
                 #sims, _ = kernel_estimation(query_batch, chunks, self.backend, gamma=1.0, shots=self.shots, seed=self.seed, sampler=sampler)
                 #sims, _ = kernel_estimation_exp(query_batch, chunks, self.backend, gamma=1.0, shots=self.shots, seed=self.seed, sampler=sampler)
                 batch_similarities.extend(sims)
