@@ -8,7 +8,6 @@ relevant features in a dataset according to the same HDC paradigm.
 
 The quantum version of this classification model is also provided here in __hdlib.model.classification.QuantumClassificationModel__
 as described in _Cumbo et al. 2025_ https://doi.org/10.48550/arXiv.2511.12664."""
-
 import copy
 import itertools
 import multiprocessing as mp
@@ -48,6 +47,7 @@ from hdlib.arithmetic.quantum import (
     run_compute_uncompute_test,
     get_circuit_metrics,
 )
+from hdlib.arithmetic.kernel_estimations import kernel_estimation, kernel_estimation_exp
 
 
 class ClassificationModel(object):
@@ -1588,6 +1588,8 @@ class QuantumClassificationModel(object):
                 query_batch = queries[i : i + max_queries_per_job]
 
                 sims, _ = run_compute_uncompute_test(query_batch, chunks, self.backend, shots=self.shots, seed=self.seed, sampler=sampler)
+                #sims, _ = kernel_estimation(query_batch, chunks, self.backend, gamma=1.0, shots=self.shots, seed=self.seed, sampler=sampler)
+                #sims, _ = kernel_estimation_exp(query_batch, chunks, self.backend, gamma=1.0, shots=self.shots, seed=self.seed, sampler=sampler)
                 batch_similarities.extend(sims)
 
             # 4. Group the results by class for each sample
