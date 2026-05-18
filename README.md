@@ -2,7 +2,7 @@
 
 Hyperdimensional Computing Library for building Vector-Symbolic Architectures in Python 3.
 
-![Conda](https://img.shields.io/conda/dn/conda-forge/hdlib?label=hdlib%20on%20Conda)
+![Conda](https://img.shields.io/conda/dn/conda-forge/hdlib?label=hdlib%20in%20Conda)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.05704/status.svg)](https://doi.org/10.21105/joss.05704)
 [![DOI](https://zenodo.org/badge/485488487.svg)](https://doi.org/10.5281/zenodo.7996502)
 
@@ -70,9 +70,9 @@ Please credit our work in your manuscript by citing:
 >
 > Cumbo et al., (2025). Hyperdimensional computing in biomedical sciences: a brief review. _PeerJ Computer Science_, 11, e2885. https://doi.org/10.7717/peerj-cs.2885
 >
-> Cumbo et al., (2025). A novel Vector-Symbolic Architecture for graph encoding and its application to viral pangenome-based species classification. _bioRxiv_, 2025-09. https://doi.org/10.1101/2025.09.08.674958
+> Cumbo et al., (2026). A novel Vector-Symbolic Architecture for graph encoding and its application to viral pangenome-based species classification. _BioData Mining_, 2026-05. https://doi.org/10.1186/s13040-026-00561-1
 >
-> Cumbo et al., (2025). Quantum Hyperdimensional Computing: a foundational paradigm for quantum neuromorphic architectures. _arXiv_, 2025-11. https://doi.org/10.48550/arXiv.2511.12664
+> Cumbo et al., (2026). Quantum Hyperdimensional Computing: a foundational paradigm for quantum neuromorphic architectures. _npj Unconventional Computing_, 3(1), 21. https://doi.org/10.1038/s44335-026-00064-6
 >
 > Cumbo et al., (2026). Designing vector-symbolic architectures for biomedical applications: ten tips and common pitfalls. _PeerJ Computer Science_, 12, e3682. https://doi.org/10.7717/peerj-cs.3682
 
