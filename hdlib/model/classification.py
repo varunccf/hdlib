@@ -47,7 +47,7 @@ from hdlib.arithmetic.quantum import (
     run_compute_uncompute_test,
     get_circuit_metrics,
 )
-from hdlib.arithmetic.kernel_estimations import kernel_estimation, kernel_estimation_exp,swap_test_similarity
+from hdlib.arithmetic.kernel_estimation import kernel_estimation, kernel_estimation_exp, swap_test_similarity
 
 
 class ClassificationModel(object):
