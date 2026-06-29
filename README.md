@@ -31,6 +31,14 @@ Here is the table of content:
   - [Clustering](https://github.com/cumbof/hdlib/wiki/Examples#clustering)
 - [Support and contributions](https://github.com/cumbof/hdlib/wiki/Support-and-contributions)
 
+## Agent Skills
+
+Want to use `hdlib` with an LLM coding assistant? The [**hdlib-skills**](https://github.com/cumbof/hdlib-skills) repository provides a collection of [Agent Skills](https://github.com/cumbof/hdlib-skills) that teach LLM agents how to use the library effectively.
+
+The skills cover foundational concepts (vectors, space, arithmetic, and distance operations), machine learning models (classification, clustering, regression, graph encoding, and feature selection), quantum hyperdimensional computing, and common usage patterns (analogical reasoning, data encoding, and troubleshooting).
+
+They are compatible with any tool that supports the Agent Skills standard. See the [hdlib-skills](https://github.com/cumbof/hdlib-skills) repository for installation and usage instructions.
+
 ## Credits
 
 Please credit our work in your manuscript by citing:
