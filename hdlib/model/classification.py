@@ -1594,8 +1594,13 @@ class QuantumClassificationModel(object):
 
         return predictions, similarities
 
-    def retrain(self, train_points: List[List[float]], train_labels: List[str], epochs: int=10, lr: float=1.0) -> Tuple[float, int]:
+    def retrain(self, train_points: List[List[float]], train_labels: List[str], epochs: int=10, lr: float=1.0, verbose: bool=True) -> Tuple[float, int]:
         """Retrain the model by adjusting class prototypes based on misclassified samples.
+
+        Per-epoch error rates are recorded on ``self.retrain_history_`` as a list
+        of ``{"epoch": int, "error": float}`` entries (starting at epoch 0), so
+        callers can access the training curve without parsing stdout. Setting
+        ``verbose=False`` suppresses the per-epoch prints.
         """
 
         if not hasattr(self, "classes_"):
@@ -1605,7 +1610,9 @@ class QuantumClassificationModel(object):
         predictions, _ = self.predict(train_points)
 
         best_error = sum(1 for p, t in zip(predictions, train_labels) if p != t) / len(train_labels)
-        print(f"\tepoch 0: {best_error}")
+        self.retrain_history_ = [{"epoch": 0, "error": float(best_error)}]
+        if verbose:
+            print(f"\tepoch 0: {best_error}")
 
         if best_error == 0.0:
             return best_error, 0
@@ -1658,7 +1665,9 @@ class QuantumClassificationModel(object):
             predictions, _ = self.predict(train_points)
 
             current_error = sum(1 for p, t in zip(predictions, train_labels) if p != t) / len(train_labels)
-            print(f"\tepoch {epoch}: {current_error}")
+            self.retrain_history_.append({"epoch": epoch, "error": float(current_error)})
+            if verbose:
+                print(f"\tepoch {epoch}: {current_error}")
 
             # 5. Check early stopping condition
             if current_error >= best_error:
