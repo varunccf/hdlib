@@ -489,7 +489,7 @@ if __name__ == "__main__":
 
     def _render_progress(completed, total, width=40):
         """Render a simple in-place progress bar on stderr."""
-        pct = completed / total if total else 1.0
+        pct = completed / total if total else 0.0
         filled = int(width * pct)
         bar = "#" * filled + "-" * (width - filled)
         sys.stderr.write(f"\rProgress: [{bar}] {pct * 100:6.2f}%  ({completed}/{total} folds)")
@@ -527,14 +527,14 @@ if __name__ == "__main__":
     # At the end of the run we have 5 fold_<n>_results.json files (one per
     # fold) plus this single epochs.json file that groups the per-epoch
     # error history for each fold in one place.
-    epochs_by_fold = {
-        f"fold_{fold_num}": {
-            "epochs": results_by_fold[fold_num].get("q_epochs", []),
-            "final_epoch": results_by_fold[fold_num].get("q_final_epoch"),
-            "final_error": results_by_fold[fold_num].get("q_final_error"),
+    epochs_by_fold = {}
+    for fold_num in sorted(results_by_fold.keys()):
+        fold_result = results_by_fold[fold_num]
+        epochs_by_fold[f"fold_{fold_num}"] = {
+            "epochs": fold_result.get("q_epochs", []),
+            "final_epoch": fold_result.get("q_final_epoch"),
+            "final_error": fold_result.get("q_final_error"),
         }
-        for fold_num in sorted(results_by_fold.keys())
-    }
     epochs_file = "epochs.json"
     with open(epochs_file, "w") as f:
         json.dump(epochs_by_fold, f, indent=4)
