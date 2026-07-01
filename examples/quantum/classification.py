@@ -2,6 +2,7 @@
 Data retrieval and preprocessing borrowed from https://www.tensorflow.org/quantum/tutorials/mnist"""
 
 import collections
+import contextlib
 import copy
 import os
 import math
@@ -126,8 +127,30 @@ def run_fold(fold_num, train_index, test_index, X_cv_pool, y_cv_pool,
 
     If a checkpoint file ``fold_<fold_num>_results.json`` already exists,
     the cached results are loaded and returned instead of recomputing.
+
+    All stdout produced inside this function is suppressed so that folds
+    running concurrently do not interleave their progress messages on the
+    terminal. The aggregated results are printed by the main process once
+    every fold has completed.
     """
     checkpoint_file = f"fold_{fold_num}_results.json"
+
+    # Redirect stdout to /dev/null for the entire fold so the parallel
+    # workers stay silent; the main process renders a progress bar and
+    # prints the final summary once everything is done.
+    with open(os.devnull, "w") as _devnull, contextlib.redirect_stdout(_devnull):
+        return _run_fold_body(
+            fold_num, train_index, test_index, X_cv_pool, y_cv_pool,
+            X_cv_pool_np, y_cv_pool_np, dimensionality, n_splits,
+            checkpoint_file,
+        )
+
+
+def _run_fold_body(fold_num, train_index, test_index, X_cv_pool, y_cv_pool,
+                   X_cv_pool_np, y_cv_pool_np, dimensionality, n_splits,
+                   checkpoint_file):
+    """Actual fold body; extracted so ``run_fold`` can wrap it in an
+    stdout-redirect context manager without indenting the whole function."""
 
     # --- Checkpoint Loading ---
     if os.path.exists(checkpoint_file):
@@ -210,9 +233,9 @@ def run_fold(fold_num, train_index, test_index, X_cv_pool, y_cv_pool,
 
     print(f"Retraining Quantum Model (D={dimensionality}; epochs=10)...")
     error_rate, epochs = model_q.retrain(X_train_fold, y_train_fold, epochs=10, verbose=False)
-    # Capture the per-epoch error curve so it can be saved separately from the
-    # rest of the fold results (see the aggregated epochs.json produced by the
-    # main script).
+    # Capture the per-epoch error curve and save it inside this fold's
+    # own JSON checkpoint (under ``q_epochs`` / ``q_final_epoch`` /
+    # ``q_final_error``) so all fold data lives in a single file per fold.
     fold_epoch_history = list(getattr(model_q, "retrain_history_", []))
 
     print(f"\nEvaluating Quantum Model (D={dimensionality})...")
@@ -522,23 +545,6 @@ if __name__ == "__main__":
             fold_num, fold_data = future.result()
             results_by_fold[fold_num] = fold_data
             _render_progress(len(results_by_fold), total_folds)
-
-    # --- Aggregate per-epoch training curves into a single JSON file ---
-    # At the end of the run we have 5 fold_<n>_results.json files (one per
-    # fold) plus this single epochs.json file that groups the per-epoch
-    # error history for each fold in one place.
-    epochs_by_fold = {}
-    for fold_num in sorted(results_by_fold.keys()):
-        fold_result = results_by_fold[fold_num]
-        epochs_by_fold[f"fold_{fold_num}"] = {
-            "epochs": fold_result.get("q_epochs", []),
-            "final_epoch": fold_result.get("q_final_epoch"),
-            "final_error": fold_result.get("q_final_error"),
-        }
-    epochs_file = "epochs.json"
-    with open(epochs_file, "w") as f:
-        json.dump(epochs_by_fold, f, indent=4)
-    print(f"--- SAVED PER-EPOCH HISTORY FOR ALL FOLDS TO {epochs_file} ---")
 
     # Aggregate results in deterministic fold order (1..N_SPLITS) so the
     # downstream summary is identical to the sequential version.
