@@ -5,6 +5,7 @@ import collections
 import copy
 import os
 import math
+import sys
 import time # Import the time module
 import json # Import the json module for checkpoints
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -208,7 +209,11 @@ def run_fold(fold_num, train_index, test_index, X_cv_pool, y_cv_pool,
     model_q.fit(X_train_fold, y_train_fold)
 
     print(f"Retraining Quantum Model (D={dimensionality}; epochs=10)...")
-    error_rate, epochs = model_q.retrain(X_train_fold, y_train_fold, epochs=10)
+    error_rate, epochs = model_q.retrain(X_train_fold, y_train_fold, epochs=10, verbose=False)
+    # Capture the per-epoch error curve so it can be saved separately from the
+    # rest of the fold results (see the aggregated epochs.json produced by the
+    # main script).
+    fold_epoch_history = list(getattr(model_q, "retrain_history_", []))
 
     print(f"\nEvaluating Quantum Model (D={dimensionality})...")
     y_pred_q, scores_q = model_q.predict(X_test_fold)
@@ -302,6 +307,9 @@ def run_fold(fold_num, train_index, test_index, X_cv_pool, y_cv_pool,
         'q_matrix': fold_matrix_q.tolist(),
         'q_time': fold_time_q,
         'q_roc_data': fold_roc_data_q,
+        'q_epochs': fold_epoch_history,
+        'q_final_epoch': int(epochs),
+        'q_final_error': float(error_rate),
 
         # VQC/QSVC entries are disabled; re-enable together with the
         # corresponding model blocks above.
@@ -479,7 +487,20 @@ if __name__ == "__main__":
 
     print(f"\n--- Launching {len(fold_splits)} folds in parallel ---")
 
+    def _render_progress(completed, total, width=40):
+        """Render a simple in-place progress bar on stderr."""
+        pct = completed / total if total else 0.0
+        filled = int(width * pct)
+        bar = "#" * filled + "-" * (width - filled)
+        sys.stderr.write(f"\rProgress: [{bar}] {pct * 100:6.2f}%  ({completed}/{total} folds)")
+        sys.stderr.flush()
+        if completed == total:
+            sys.stderr.write("\n")
+            sys.stderr.flush()
+
     results_by_fold = {}
+    total_folds = len(fold_splits)
+    _render_progress(0, total_folds)
     with ProcessPoolExecutor(max_workers=N_SPLITS) as executor:
         futures = [
             executor.submit(
@@ -500,7 +521,24 @@ if __name__ == "__main__":
         for future in as_completed(futures):
             fold_num, fold_data = future.result()
             results_by_fold[fold_num] = fold_data
-            print(f"--- COMPLETED FOLD {fold_num}/{N_SPLITS} ---")
+            _render_progress(len(results_by_fold), total_folds)
+
+    # --- Aggregate per-epoch training curves into a single JSON file ---
+    # At the end of the run we have 5 fold_<n>_results.json files (one per
+    # fold) plus this single epochs.json file that groups the per-epoch
+    # error history for each fold in one place.
+    epochs_by_fold = {}
+    for fold_num in sorted(results_by_fold.keys()):
+        fold_result = results_by_fold[fold_num]
+        epochs_by_fold[f"fold_{fold_num}"] = {
+            "epochs": fold_result.get("q_epochs", []),
+            "final_epoch": fold_result.get("q_final_epoch"),
+            "final_error": fold_result.get("q_final_error"),
+        }
+    epochs_file = "epochs.json"
+    with open(epochs_file, "w") as f:
+        json.dump(epochs_by_fold, f, indent=4)
+    print(f"--- SAVED PER-EPOCH HISTORY FOR ALL FOLDS TO {epochs_file} ---")
 
     # Aggregate results in deterministic fold order (1..N_SPLITS) so the
     # downstream summary is identical to the sequential version.
